@@ -3,16 +3,22 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
 
 import pathlib
+import yaml
+from pathlib import Path
+import os
 
 
 class ProjectsView(Gtk.Box):
     def __init__(self, application):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         self.application = application
-
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        # show the actual projects folder path as the header label
-        self.projects_dir = pathlib.Path.cwd() / "projects"
+        # Determine projects directory from config if present
+        try:
+            from app.config import get_projects_dir
+            self.projects_dir = get_projects_dir()
+        except Exception:
+            self.projects_dir = pathlib.Path.cwd() / "projects"
         title = Gtk.Label(label=str(self.projects_dir))
         title.get_style_context().add_class("title")
         header.append(title)
@@ -65,7 +71,7 @@ class ProjectsView(Gtk.Box):
 
     def load_projects(self):
         projects_dir = self.projects_dir
-        projects_dir.mkdir(exist_ok=True)
+        projects_dir.mkdir(parents=True, exist_ok=True)
 
         # Clear existing children
         while True:

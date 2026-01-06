@@ -114,8 +114,13 @@ class WorkflowExecutor:
 
             # attempt to locate template image in project classes
             found = False
-            # attempt to locate image inside './projects/*/classes/<class_name>/*.png'
-            projects_root = pathlib.Path.cwd() / "projects"
+            # attempt to locate image inside configured projects dir: <project>/classes/<class_name>/*.png
+            try:
+                from app.config import get_projects_dir
+                projects_root = get_projects_dir()
+            except Exception:
+                projects_root = pathlib.Path.cwd() / "projects"
+
             if projects_root.exists():
                 for proj in projects_root.iterdir():
                     if not proj.is_dir():
