@@ -181,3 +181,5 @@ class ImageTemplates(Gtk.Box):
                                     text=f"Failed to launch labeler: {e}")
             dlg.connect("response", lambda d, r: d.destroy())
             dlg.present()
+
+#

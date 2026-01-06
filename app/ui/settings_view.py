@@ -34,3 +34,5 @@ class SettingsView(Gtk.Box):
         drivers = self.driver_entry.get_text()
         timeout = self.timeout_entry.get_text()
         print(f"Settings saved: drivers={drivers}, timeout={timeout}")
+
+#

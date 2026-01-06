@@ -164,3 +164,4 @@ class ActionEditor(Gtk.Box):
     def reload_classes_if_needed(self):
         """Public method to refresh class list from disk."""
         self._reload_classes()
+#

@@ -18,6 +18,7 @@ that can use `pyautogui`, `xdotool`, or other backends.
 1. Create and activate a Python virtual environment
 
 ```bash
+#
 python3 -m venv .venv
 source .venv/bin/activate
 ```
@@ -61,3 +62,5 @@ tests for new functionality when possible.
 GNU 
 
 see LICENSE
+
+#

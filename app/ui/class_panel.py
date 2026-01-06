@@ -205,3 +205,4 @@ class ClassPanel(Gtk.Box):
                 classes.append(child.class_name)
             child = child.get_next_sibling()
         return classes
+#

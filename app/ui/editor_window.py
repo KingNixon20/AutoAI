@@ -337,3 +337,4 @@ class EditorWindow(Gtk.ApplicationWindow):
                 self.editor.add_step(step)
         except Exception:
             pass
+#

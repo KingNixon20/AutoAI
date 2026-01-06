@@ -167,3 +167,4 @@ class ProjectsView(Gtk.Box):
 
         win = EditorWindow(application=self.application, project_path=project_path)
         win.present()
+#

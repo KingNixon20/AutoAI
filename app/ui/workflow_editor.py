@@ -93,3 +93,4 @@ class WorkflowEditor(Gtk.Box):
         """Remove all steps from the editor."""
         # Clear the ListStore safely
         self.liststore.clear()
+#

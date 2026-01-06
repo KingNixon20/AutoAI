@@ -23,3 +23,5 @@ class Workflow:
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
         return cls.from_dict(data)
+
+#

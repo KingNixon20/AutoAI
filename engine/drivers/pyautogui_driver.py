@@ -25,3 +25,5 @@ class PyAutoGuiDriver(Driver):
 
     def supports(self) -> dict:
         return {"name": "pyautogui", "display": "generic", "available": True}
+
+#

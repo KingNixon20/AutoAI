@@ -38,3 +38,5 @@ class MainWindow(Gtk.ApplicationWindow):
         self.stack.set_hexpand(True)
         self.stack.set_vexpand(True)
         hbox.append(self.stack)
+
+#
