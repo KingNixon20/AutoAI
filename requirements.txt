@@ -1,0 +1,4 @@
+PyGObject>=3.40.0
+pyautogui>=0.9.53
+Pillow
+PyYAML>=6.0

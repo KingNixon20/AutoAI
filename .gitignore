@@ -1,0 +1,70 @@
+# Byte-compiled / caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+pip-wheel-metadata/
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Unit test / coverage
+.coverage
+.cache
+.pytest_cache/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and databases
+*.log
+*.sqlite3
+*.db
+
+# Generated assets and models
+models/
+models/*.pt
+assets/
+projects/*/thumbnail.png
+
+# Secrets and keys
+.env
+.env.local
+credentials.json
+*.pem
+*.key
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Misc backups
+*.bak
+engine/projeccts
+projects/TestProject/workflows/EveBot1.yaml
