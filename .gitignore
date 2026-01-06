@@ -68,3 +68,4 @@ credentials.json
 *.bak
 engine/projeccts
 projects/TestProject/workflows/EveBot1.yaml
+/projects
