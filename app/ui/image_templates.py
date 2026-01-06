@@ -4,6 +4,9 @@ from gi.repository import Gtk
 
 import pathlib
 import shutil
+import subprocess
+import sys
+from pathlib import Path
 
 
 class ImageTemplates(Gtk.Box):
@@ -41,6 +44,9 @@ class ImageTemplates(Gtk.Box):
         add_btn = Gtk.Button(label="Add Image")
         add_btn.connect("clicked", self.on_add_image)
         btns.append(add_btn)
+        labeler_btn = Gtk.Button(label="Open Labeler")
+        labeler_btn.connect("clicked", self.on_open_labeler)
+        btns.append(labeler_btn)
         del_btn = Gtk.Button(label="Delete Selected")
         del_btn.connect("clicked", self.on_delete_selected)
         btns.append(del_btn)
@@ -144,3 +150,34 @@ class ImageTemplates(Gtk.Box):
         except Exception:
             pass
         self.load_images()
+
+    def on_open_labeler(self, button):
+        """Launch the external template labeler script as a subprocess.
+
+        Pass the selected class directory if present, otherwise pass the project classes dir.
+        """
+        cls = self.class_combo.get_active_text()
+        if cls:
+            target = self.classes_dir / cls
+        else:
+            target = self.classes_dir
+
+        # locate the tools/templateGUI.py relative to repository root
+        repo_root = Path(__file__).resolve().parents[1]
+        script = repo_root / 'tools' / 'templateGUI.py'
+        if not script.exists():
+            dlg = Gtk.MessageDialog(transient_for=self.get_root(), modal=True,
+                                    message_type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.OK,
+                                    text=f"Labeler script not found: {script}")
+            dlg.connect("response", lambda d, r: d.destroy())
+            dlg.present()
+            return
+
+        try:
+            subprocess.Popen([sys.executable, str(script), str(target)])
+        except Exception as e:
+            dlg = Gtk.MessageDialog(transient_for=self.get_root(), modal=True,
+                                    message_type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.OK,
+                                    text=f"Failed to launch labeler: {e}")
+            dlg.connect("response", lambda d, r: d.destroy())
+            dlg.present()

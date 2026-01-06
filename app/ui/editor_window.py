@@ -1,6 +1,6 @@
 import gi
 gi.require_version("Gtk", "4.0")
-from gi.repository import Gtk
+from gi.repository import Gtk, GLib
 
 from app.ui.workflow_editor import WorkflowEditor
 from app.ui.action_editor import ActionEditor
@@ -58,6 +58,11 @@ class EditorWindow(Gtk.ApplicationWindow):
         save_btn.get_style_context().add_class("suggested-action")
         save_btn.connect("clicked", self.on_save)
         left_menu.append(save_btn)
+
+        # Dry-run toggle
+        self.dry_run_check = Gtk.CheckButton(label="Dry-run (no input actions)")
+        self.dry_run_check.set_active(True)
+        left_menu.append(self.dry_run_check)
 
         # Run button
         run_btn = Gtk.Button(label="Run Project")
@@ -181,6 +186,9 @@ class EditorWindow(Gtk.ApplicationWindow):
         # Connect to notebook page changes to update right panel
         self.notebook.connect("switch-page", self._on_tab_changed)
 
+        # After UI setup, try loading the most recent workflow for this project
+        self._load_existing_workflow()
+
     def _on_tab_changed(self, notebook, page, page_num):
         """Update right panel based on active tab."""
         # When switching back to Actions tab, reload classes in case they were added
@@ -206,23 +214,59 @@ class EditorWindow(Gtk.ApplicationWindow):
         self.editor.add_step(step)
 
     def on_run(self, button):
-        # Placeholder for running the workflow
-        msg = Gtk.MessageDialog(
-            transient_for=self,
-            modal=True,
-            message_type=Gtk.MessageType.INFO,
-            buttons=Gtk.ButtonsType.OK,
-            text="Run functionality not yet implemented"
-        )
-        msg.connect("response", lambda d, r: d.destroy())
-        msg.present()
+        # Run the current workflow using the WorkflowExecutor (with dry-run option)
+        from engine.executor import WorkflowExecutor
+        from storage.workflow import Workflow
+
+        steps = self.editor.get_steps()
+        if not steps:
+            dlg = Gtk.MessageDialog(
+                transient_for=self,
+                modal=True,
+                message_type=Gtk.MessageType.INFO,
+                buttons=Gtk.ButtonsType.OK,
+                text="No steps to run"
+            )
+            dlg.connect("response", lambda d, r: d.destroy())
+            dlg.present()
+            return
+
+        wf = Workflow(name=self.name_entry.get_text().strip() or self.project_path.name, steps=steps)
+        executor = WorkflowExecutor()
+        dry = bool(self.dry_run_check.get_active())
+
+        # Create a dialog to show progress and allow stopping
+        dlg = Gtk.Dialog(title="Running Workflow", transient_for=self, modal=True)
+        dlg.add_buttons("_Close", Gtk.ResponseType.CLOSE)
+        content = dlg.get_content_area()
+        status_label = Gtk.Label(label="Starting...")
+        status_label.set_wrap(True)
+        status_label.set_max_width_chars(60)
+        content.append(status_label)
+
+        stop_btn = Gtk.Button(label="Stop")
+        stop_btn.connect("clicked", lambda b: executor.stop())
+        content.append(stop_btn)
+
+        dlg.present()
+
+        def on_update(msg: str):
+            GLib.idle_add(status_label.set_text, str(msg))
+
+        def on_finished(success: bool, message: str):
+            def _finish():
+                status_label.set_text(f"Finished: {message}")
+                return False
+            GLib.idle_add(_finish)
+
+        executor.run(wf, dry_run=dry, on_update=on_update, on_finished=on_finished)
 
     def on_save(self, button):
         # Auto-save workflow using project name (overwrite if exists)
         from storage.project import Project
         from storage.workflow import Workflow
-
-        name = self.project_path.name
+        # prefer the name in the Project Name entry so users can rename workflows
+        name = self.name_entry.get_text().strip() or self.project_path.name
         proj = Project(self.project_path)
         steps = self.editor.get_steps()
         wf = Workflow(name=name, steps=steps)
@@ -263,3 +307,33 @@ class EditorWindow(Gtk.ApplicationWindow):
             )
             msg.connect("response", lambda d, r: d.destroy())
             msg.present()
+
+    def _load_existing_workflow(self):
+        """Load the most recently saved workflow for this project (if any)."""
+        from storage.project import Project
+
+        proj = Project(self.project_path)
+        workflows = proj.list_workflows()
+        if not workflows:
+            return
+
+        # workflows is a list of (path, Workflow) tuples. Pick the most-recent file.
+        try:
+            workflows_sorted = sorted(workflows, key=lambda t: t[0].stat().st_mtime, reverse=True)
+        except Exception:
+            workflows_sorted = workflows
+
+        path, wf = workflows_sorted[0]
+
+        # populate UI
+        try:
+            self.name_entry.set_text(wf.name)
+        except Exception:
+            pass
+
+        try:
+            self.editor.clear_steps()
+            for step in wf.steps:
+                self.editor.add_step(step)
+        except Exception:
+            pass

@@ -1,6 +1,7 @@
 import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
+import json
 
 
 class WorkflowEditor(Gtk.Box):
@@ -13,7 +14,8 @@ class WorkflowEditor(Gtk.Box):
         toolbar.append(remove_btn)
         self.append(toolbar)
 
-        self.liststore = Gtk.ListStore(str, str)
+        # columns: 0=type, 1=display string, 2=params json (hidden)
+        self.liststore = Gtk.ListStore(str, str, str)
         self.tree = Gtk.TreeView(model=self.liststore)
         self.tree.set_vexpand(True)
         
@@ -38,12 +40,21 @@ class WorkflowEditor(Gtk.Box):
             step: dict with 'type' and 'params' keys
         """
         step_type = step.get("type", "Unknown")
-        params = step.get("params", {})
-        
-        # Format params as readable string
-        params_str = ", ".join(f"{k}={v}" for k, v in params.items())
-        
-        self.liststore.append([step_type, params_str])
+        params = step.get("params", {}) or {}
+
+        # Format params as readable string for display
+        try:
+            params_str = ", ".join(f"{k}={v}" for k, v in params.items())
+        except Exception:
+            params_str = str(params)
+
+        # Serialize params to JSON for exact round-trip (fallback to str for non-serializables)
+        try:
+            params_json = json.dumps(params, ensure_ascii=False, default=str)
+        except Exception:
+            params_json = json.dumps({k: str(v) for k, v in (params.items() if isinstance(params, dict) else [])})
+
+        self.liststore.append([step_type, params_str, params_json])
 
     def on_remove(self, button):
         selection = self.tree.get_selection()
@@ -56,15 +67,29 @@ class WorkflowEditor(Gtk.Box):
         out = []
         for row in self.liststore:
             step_type = row[0]
-            params_raw = row[1] or ""
+            params_json = row[2] or ""
             params = {}
-            for part in params_raw.split(","):
-                if not part.strip():
-                    continue
-                if "=" in part:
-                    k, v = part.split("=", 1)
-                    params[k.strip()] = v.strip()
-                else:
-                    params[part.strip()] = True
+            if params_json:
+                try:
+                    params = json.loads(params_json)
+                except Exception:
+                    params = {}
+            else:
+                # fallback to parsing the display string (legacy support)
+                params_raw = row[1] or ""
+                for part in params_raw.split(","):
+                    if not part.strip():
+                        continue
+                    if "=" in part:
+                        k, v = part.split("=", 1)
+                        params[k.strip()] = v.strip()
+                    else:
+                        params[part.strip()] = True
+
             out.append({"type": step_type, "params": params})
         return out
+
+    def clear_steps(self):
+        """Remove all steps from the editor."""
+        # Clear the ListStore safely
+        self.liststore.clear()
