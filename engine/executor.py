@@ -22,26 +22,37 @@ class WorkflowExecutor:
     def stop(self):
         self._stop = True
 
-    def run(self, workflow, dry_run: bool = False, on_update: Optional[Callable[[str], None]] = None, on_finished: Optional[Callable[[bool, str], None]] = None):
+    def run(self, workflow, dry_run: bool = False, options: dict | None = None, on_update: Optional[Callable[[str], None]] = None, on_finished: Optional[Callable[[bool, str], None]] = None):
         """Run workflow in background thread.
 
         on_update(message) will be called for progress messages.
         on_finished(success: bool, message: str) will be called when done.
         """
-        thread = threading.Thread(target=self._run, args=(workflow, dry_run, on_update, on_finished), daemon=True)
+        thread = threading.Thread(target=self._run, args=(workflow, dry_run, options or {}, on_update, on_finished), daemon=True)
         thread.start()
         return thread
 
-    def _run(self, workflow, dry_run, on_update, on_finished):
+    def _run(self, workflow, dry_run, options, on_update, on_finished):
         self._stop = False
         drv = None
         try:
             drv = self.driver_manager.get_driver()
             if on_update:
                 on_update(f"Selected driver: {getattr(drv, '__class__', type(drv))}")
-
             steps = getattr(workflow, "steps", [])
-            for idx, step in enumerate(steps, start=1):
+
+            # options: loop, infinite, loop_count, delay_mode, delay, delay_min, delay_max
+            loop = bool(options.get('loop', False))
+            infinite = bool(options.get('infinite', False))
+            loop_count = int(options.get('loop_count', 1) or 1)
+            delay_mode = options.get('delay_mode', 'fixed')
+            delay_fixed = float(options.get('delay', 0.0) or 0.0)
+            delay_min = float(options.get('delay_min', 0.0) or 0.0)
+            delay_max = float(options.get('delay_max', 0.0) or 0.0)
+
+            iteration = 0
+            while True:
+                iteration += 1
                 if self._stop:
                     if on_update:
                         on_update("Execution stopped")
@@ -49,20 +60,60 @@ class WorkflowExecutor:
                         on_finished(False, "stopped")
                     return
 
-                stype = step.get("type")
-                params = step.get("params", {})
                 if on_update:
-                    on_update(f"Step {idx}/{len(steps)}: {stype} {params}")
+                    on_update(f"Starting iteration {iteration}")
 
-                try:
-                    self._execute_step(stype, params, drv, dry_run)
-                except Exception as e:
-                    log.exception("Step failed")
+                for idx, step in enumerate(steps, start=1):
+                    if self._stop:
+                        if on_update:
+                            on_update("Execution stopped")
+                        if on_finished:
+                            on_finished(False, "stopped")
+                        return
+
+                    stype = step.get("type")
+                    params = step.get("params", {})
                     if on_update:
-                        on_update(f"Step failed: {e}")
-                    if on_finished:
-                        on_finished(False, str(e))
-                    return
+                        on_update(f"Step {idx}/{len(steps)}: {stype} {params}")
+
+                    try:
+                        self._execute_step(stype, params, drv, dry_run)
+                    except Exception as e:
+                        log.exception("Step failed")
+                        if on_update:
+                            on_update(f"Step failed: {e}")
+                        if on_finished:
+                            on_finished(False, str(e))
+                        return
+
+                    # apply global inter-step delay (unless stop requested)
+                    if self._stop:
+                        break
+                    try:
+                        if delay_mode == 'random':
+                            import random
+                            d = max(0.0, random.uniform(delay_min, delay_max))
+                        else:
+                            d = max(0.0, delay_fixed)
+                        if d > 0:
+                            if dry_run:
+                                log.info(f"[dry] Inter-step delay {d}s")
+                                time.sleep(min(d, 0.1))
+                            else:
+                                time.sleep(d)
+                    except Exception:
+                        pass
+
+                # completed one iteration
+                if on_update:
+                    on_update(f"Completed iteration {iteration}")
+
+                if not loop:
+                    break
+                if infinite:
+                    continue
+                if iteration >= loop_count:
+                    break
 
             if on_update:
                 on_update("Workflow completed")

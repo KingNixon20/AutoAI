@@ -18,7 +18,7 @@ class WorkflowEditor(Gtk.Box):
         self.liststore = Gtk.ListStore(str, str, str)
         self.tree = Gtk.TreeView(model=self.liststore)
         self.tree.set_vexpand(True)
-        
+
         renderer_text = Gtk.CellRendererText()
         col1 = Gtk.TreeViewColumn("Action Type", renderer_text, text=0)
         col2 = Gtk.TreeViewColumn("Parameters", renderer_text, text=1)
@@ -93,4 +93,71 @@ class WorkflowEditor(Gtk.Box):
         """Remove all steps from the editor."""
         # Clear the ListStore safely
         self.liststore.clear()
+
+    # --- Options panel helpers ---
+    def _on_infinite_toggled(self, widget):
+        inf = bool(self.chk_infinite.get_active())
+        try:
+            self.spin_loops.set_sensitive(not inf)
+        except Exception:
+            pass
+        self._update_settings()
+
+    def _on_random_toggled(self, widget):
+        rand = bool(self.chk_random_delay.get_active())
+        try:
+            self.spin_delay.set_sensitive(not rand)
+            self.spin_delay_min.set_sensitive(rand)
+            self.spin_delay_max.set_sensitive(rand)
+        except Exception:
+            pass
+        self._update_settings()
+
+    def _update_settings(self):
+        self._settings['loop'] = bool(self.chk_loop.get_active())
+        self._settings['infinite'] = bool(self.chk_infinite.get_active())
+        try:
+            self._settings['loop_count'] = int(self.spin_loops.get_value())
+        except Exception:
+            self._settings['loop_count'] = 1
+        self._settings['delay_mode'] = 'random' if bool(self.chk_random_delay.get_active()) else 'fixed'
+        try:
+            self._settings['delay'] = float(self.spin_delay.get_value())
+            self._settings['delay_min'] = float(self.spin_delay_min.get_value())
+            self._settings['delay_max'] = float(self.spin_delay_max.get_value())
+        except Exception:
+            pass
+
+    def get_settings(self):
+        """Return current run options as a dict.
+
+        Keys: `loop` (bool), `infinite` (bool), `loop_count` (int),
+        `delay_mode` ('fixed'|'random'), `delay`, `delay_min`, `delay_max`.
+        """
+        # ensure state reflects current widgets
+        self._update_settings()
+        return dict(self._settings)
+
+    def set_settings(self, settings: dict):
+        """Apply settings dict to the options UI (partial allowed)."""
+        try:
+            if 'loop' in settings:
+                self.chk_loop.set_active(bool(settings.get('loop', False)))
+            if 'infinite' in settings:
+                self.chk_infinite.set_active(bool(settings.get('infinite', False)))
+            if 'loop_count' in settings:
+                self.spin_loops.set_value(int(settings.get('loop_count', 1)))
+            if 'delay_mode' in settings:
+                self.chk_random_delay.set_active(settings.get('delay_mode') == 'random')
+            if 'delay' in settings:
+                self.spin_delay.set_value(float(settings.get('delay', 0.5)))
+            if 'delay_min' in settings:
+                self.spin_delay_min.set_value(float(settings.get('delay_min', 0.2)))
+            if 'delay_max' in settings:
+                self.spin_delay_max.set_value(float(settings.get('delay_max', 1.0)))
+        except Exception:
+            pass
+        # update dependent widget sensitivity
+        self._on_infinite_toggled(None)
+        self._on_random_toggled(None)
 #

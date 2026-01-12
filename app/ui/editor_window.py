@@ -6,6 +6,7 @@ from app.ui.workflow_editor import WorkflowEditor
 from app.ui.action_editor import ActionEditor
 from app.ui.class_panel import ClassPanel
 from app.ui.image_templates import ImageTemplates
+from app.ui.run_options import RunOptions
 import pathlib
 
 
@@ -68,6 +69,11 @@ class EditorWindow(Gtk.ApplicationWindow):
         run_btn = Gtk.Button(label="Run Project")
         run_btn.connect("clicked", self.on_run)
         left_menu.append(run_btn)
+
+        # Screenshot recorder launcher
+        shot_btn = Gtk.Button(label="Screenshot Recorder")
+        shot_btn.connect("clicked", lambda b: self._open_screenshot_recorder())
+        left_menu.append(shot_btn)
 
         # wrap left menu in a titled frame for a cleaner look
         left_frame = Gtk.Frame()
@@ -170,6 +176,10 @@ class EditorWindow(Gtk.ApplicationWindow):
         action_frame.set_child(self.action_editor)
         right_panel.append(action_frame)
 
+        # Run options placed under the action editor in the right sidebar
+        self.run_options = RunOptions()
+        right_panel.append(self.run_options)
+
         inner_paned.set_end_child(right_panel)
         inner_paned.set_resize_end_child(False)
         inner_paned.set_shrink_end_child(False)
@@ -233,6 +243,12 @@ class EditorWindow(Gtk.ApplicationWindow):
 
         wf = Workflow(name=self.name_entry.get_text().strip() or self.project_path.name, steps=steps)
         executor = WorkflowExecutor()
+        # gather run options from the run options widget and pass to executor
+        run_options = {}
+        try:
+            run_options = self.run_options.get_settings()
+        except Exception:
+            run_options = {}
         dry = bool(self.dry_run_check.get_active())
 
         # Create a dialog to show progress and allow stopping
@@ -244,6 +260,11 @@ class EditorWindow(Gtk.ApplicationWindow):
         status_label.set_max_width_chars(60)
         content.append(status_label)
 
+        # Iteration indicator
+        iteration_label = Gtk.Label(label="Iteration: -")
+        iteration_label.set_halign(Gtk.Align.START)
+        content.append(iteration_label)
+
         stop_btn = Gtk.Button(label="Stop")
         stop_btn.connect("clicked", lambda b: executor.stop())
         content.append(stop_btn)
@@ -251,7 +272,22 @@ class EditorWindow(Gtk.ApplicationWindow):
         dlg.present()
 
         def on_update(msg: str):
+            # Update status label
             GLib.idle_add(status_label.set_text, str(msg))
+            # If executor sends iteration messages like 'Starting iteration N', update iteration label
+            try:
+                if isinstance(msg, str) and msg.startswith('Starting iteration'):
+                    parts = msg.split()
+                    if len(parts) >= 3:
+                        num = parts[2].strip()
+                        GLib.idle_add(iteration_label.set_text, f"Iteration: {num}")
+                elif isinstance(msg, str) and msg.startswith('Completed iteration'):
+                    parts = msg.split()
+                    if len(parts) >= 3:
+                        num = parts[2].strip()
+                        GLib.idle_add(iteration_label.set_text, f"Completed: {num}")
+            except Exception:
+                pass
 
         def on_finished(success: bool, message: str):
             def _finish():
@@ -259,7 +295,7 @@ class EditorWindow(Gtk.ApplicationWindow):
                 return False
             GLib.idle_add(_finish)
 
-        executor.run(wf, dry_run=dry, on_update=on_update, on_finished=on_finished)
+        executor.run(wf, dry_run=dry, options=run_options, on_update=on_update, on_finished=on_finished)
 
     def on_save(self, button):
         # Auto-save workflow using project name (overwrite if exists)
@@ -337,4 +373,16 @@ class EditorWindow(Gtk.ApplicationWindow):
                 self.editor.add_step(step)
         except Exception:
             pass
+
+    def _open_screenshot_recorder(self):
+        try:
+            from app.ui.screenshot_recorder import ScreenshotRecorder
+            win = ScreenshotRecorder(self.project_path, transient_for=self)
+            win.present()
+        except Exception as e:
+            dlg = Gtk.MessageDialog(transient_for=self, modal=True,
+                                    message_type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.OK,
+                                    text=f"Failed to open screenshot recorder: {e}")
+            dlg.connect("response", lambda d, r: d.destroy())
+            dlg.present()
 #

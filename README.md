@@ -27,6 +27,13 @@ source .venv/bin/activate
 
 ```bash
 pip install -r requirements.txt
+
+#Ubuntu
+sudo apt install libgtk-4-dev gir1.2-gtk-4.0 python3-gi python3-gi-cairo
+#Fedora:
+sudo dnf install gtk4 gtk4-devel python3-gobject python3-gobject-base
+#Arch:
+sudo pacman -Syu gtk4 python-gobject
 ```
 
 3. Run the app
