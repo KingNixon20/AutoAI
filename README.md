@@ -1,5 +1,6 @@
 # AutoAI — Desktop Automation Builder
 
+
 AutoAI is a GTK-based desktop application for creating, training, and running
 desktop automation workflows on Linux. It provides a visual workflow editor,
 image-class management for template matching, and an extensible driver layer
